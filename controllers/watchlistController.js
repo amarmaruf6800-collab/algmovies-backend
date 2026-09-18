@@ -63,8 +63,4 @@ const removeWatchlist = async (req, res) => {
     }
 };
 
-<<<<<<< HEAD
 module.exports = { addWatchlist, getMyWatchlist, removeWatchlist };
-=======
-module.exports = { addWatchlist, getMyWatchlist, removeWatchlist };
->>>>>>> 0acdf396c66fc5172cf7a5b271ebfa0bf5bcf96a
