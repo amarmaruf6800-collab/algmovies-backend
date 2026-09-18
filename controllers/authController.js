@@ -6,13 +6,19 @@ const createUser = async (username, password, role) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const [rows] = await connection.query('SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM users FOR UPDATE');
+        const [rows] = await connection.query(
+            "SELECT COALESCE(MAX(CAST(NULLIF(id, '') AS UNSIGNED)), 0) + 1 AS nextId FROM users"
+        );
         const userId = rows[0].nextId;
 
         await connection.query(
             'INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)',
             [userId, username, password, role]
         );
+        const [createdUser] = await connection.query('SELECT id FROM users WHERE username = ?', [username]);
+        if (createdUser.length === 0 || createdUser[0].id === null || createdUser[0].id === '') {
+            throw new Error('User berhasil dibuat tetapi ID tidak tersimpan. Periksa tipe kolom users.id.');
+        }
         await connection.commit();
         return userId;
     } catch (error) {
@@ -27,7 +33,9 @@ const createUserIdForLegacyAccount = async (username) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const [rows] = await connection.query('SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM users FOR UPDATE');
+        const [rows] = await connection.query(
+            "SELECT COALESCE(MAX(CAST(NULLIF(id, '') AS UNSIGNED)), 0) + 1 AS nextId FROM users"
+        );
         const userId = rows[0].nextId;
         const [result] = await connection.query(
             "UPDATE users SET id = ? WHERE username = ? AND (id IS NULL OR id = '')",
@@ -53,8 +61,8 @@ const registerAdmin = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         // Default role di database sudah 'admin' dari tahap sebelumnya
-        await createUser(username, hashedPassword, 'admin');
-        res.status(201).json({ success: true, message: 'Akun Admin berhasil dibuat!' });
+        const userId = await createUser(username, hashedPassword, 'admin');
+        res.status(201).json({ success: true, userId, message: 'Akun Admin berhasil dibuat!' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -67,8 +75,8 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         // Secara eksplisit menetapkan role sebagai 'user'
-        await createUser(username, hashedPassword, 'user');
-        res.status(201).json({ success: true, message: 'Akun Penonton berhasil dibuat!' });
+        const userId = await createUser(username, hashedPassword, 'user');
+        res.status(201).json({ success: true, userId, message: 'Akun Penonton berhasil dibuat!' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
