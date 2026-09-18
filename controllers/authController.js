@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+<<<<<<< HEAD
 const createUser = async (username, password, role) => {
     const [result] = await pool.query(
         'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
@@ -13,6 +14,29 @@ const createUser = async (username, password, role) => {
     }
 
     return result.insertId;
+=======
+const getNextUserId = async (connection) => {
+    const [rows] = await connection.query('SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM users');
+    return rows[0].nextId;
+};
+
+const createUser = async (username, password, role) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const userId = await getNextUserId(connection);
+        await connection.query(
+            'INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)',
+            [userId, username, password, role]
+        );
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+>>>>>>> 0acdf396c66fc5172cf7a5b271ebfa0bf5bcf96a
 };
 
 // 1. Buat Akun Admin (Hanya untuk pengembang)
@@ -56,10 +80,26 @@ const login = async (req, res) => {
         if (!isMatch) return res.status(400).json({ success: false, message: 'Password salah!' });
 
         if (user.id === null || user.id === undefined) {
+<<<<<<< HEAD
             return res.status(500).json({
                 success: false,
                 message: 'Akun ini tidak memiliki ID user. Jalankan migrasi database, lalu daftar/login ulang.'
             });
+=======
+            const connection = await pool.getConnection();
+            try {
+                await connection.beginTransaction();
+                const userId = await getNextUserId(connection);
+                await connection.query('UPDATE users SET id = ? WHERE username = ?', [userId, username]);
+                await connection.commit();
+                user.id = userId;
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            } finally {
+                connection.release();
+            }
+>>>>>>> 0acdf396c66fc5172cf7a5b271ebfa0bf5bcf96a
         }
 
         // SISIPKAN ROLE KE DALAM TIKET JWT
@@ -76,4 +116,8 @@ const login = async (req, res) => {
     }
 };
 
+<<<<<<< HEAD
 module.exports = { registerAdmin, registerUser, login };
+=======
+module.exports = { registerAdmin, registerUser, login };
+>>>>>>> 0acdf396c66fc5172cf7a5b271ebfa0bf5bcf96a
